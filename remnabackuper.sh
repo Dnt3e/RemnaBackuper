@@ -5,9 +5,11 @@ NC='\033[0m'
 
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 
-if [[ "$0" == *"pipe"* ]] || [[ "$0" == "bash" ]]; then
+if [[ "$0" == *"pipe"* ]] || [[ "$0" == "bash" ]] || [[ "$0" == "/dev/fd/"* ]]; then
     SCRIPT_PATH="/root/remnabackup.sh"
-    cat "$0" > "$SCRIPT_PATH" 2>/dev/null || cat /dev/stdin > "$SCRIPT_PATH"
+    if [[ ! -f "$SCRIPT_PATH" ]]; then
+        curl -fsSL https://raw.githubusercontent.com/Dnt3e/RemnaBackuper/main/remnabackuper.sh -o "$SCRIPT_PATH"
+    fi
     chmod +x "$SCRIPT_PATH"
 else
     SCRIPT_PATH=$(readlink -f "$0")
