@@ -1,12 +1,6 @@
 #!/bin/bash
 
 # ==============================
-#  ██████╗ ███████╗███╗   ███╗███╗   ███╗ █████╗ ██████╗ ███████╗
-# ██╔════╝ ██╔════╝████╗ ████║████╗ ████║██╔══██╗██╔══██╗██╔════╝
-# ██║  ███╗█████╗  ██╔████╔██║██╔████╔██║███████║██████╔╝█████╗  
-# ██║   ██║██╔══╝  ██║╚██╔╝██║██║╚██╔╝██║██╔══██║██╔═══╝ ██╔══╝  
-# ╚██████╔╝███████╗██║ ╚═╝ ██║██║ ╚═╝ ██║██║  ██║██║     ███████╗
-#  ╚═════╝ ╚══════╝╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝
 # RemnaBackuper
 # Creator: Dnt3e
 # ==============================
@@ -20,16 +14,10 @@ CONFIG_FILE="$HOME/.remnabackuper.conf"
 BOT_TOKEN=""
 ADMIN_ID=""
 BACKUP_INTERVAL=60       # in minutes
-BACKUP_NAME="RemnaBackuper"
+BACKUP_NAME="backup"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
 DB_NAME="postgres"
-
-# ------------------------------
-# COLORS
-# ------------------------------
-GREEN="\e[32m"
-RESET="\e[0m"
 
 # ------------------------------
 # HELPER FUNCTIONS
@@ -68,23 +56,24 @@ get_server_ip() {
 
 # Backup DB and zip
 backup_db() {
-    FILENAME="backup.sql"                  # همیشه فایل داخل zip backup نام دارد
-    ZIPNAME="${BACKUP_NAME}.zip"          # نام فایل zip فقط بر اساس BACKUP_NAME است
-
+    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+    FILENAME="${BACKUP_NAME}_${TIMESTAMP}.sql"
+    ZIPNAME="${FILENAME}.zip"
+    
     echo "[*] Creating PostgreSQL backup..."
     docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$FILENAME"
-
+    
     echo "[*] Zipping backup..."
-    # ایجاد فایل zip با قابلیت ریکاوری 5%
-    zip -r -Z store -q -FF 5 "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
-
+    zip -r "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
+    
     echo "[*] Backup file created: $ZIPNAME"
 }
 
 # Send backup to Telegram
 send_to_telegram() {
+    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
-    DESCRIPTION="Server IP: $SERVER_IP"
+    DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
 
     echo "[*] Sending backup to Telegram..."
     curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
@@ -118,22 +107,16 @@ remove_script() {
 # MENU
 # ------------------------------
 show_menu() {
-    echo "================================================"
-    echo "      ██████╗ ███████╗███╗   ███╗███╗   ███╗ "
-    echo "     ██╔════╝ ██╔════╝████╗ ████║████╗ ████║"
-    echo "     ██║  ███╗█████╗  ██╔████╔██║██╔████╔██║"
-    echo "     ██║   ██║██╔══╝  ██║╚██╔╝██║██║╚██╔╝██║"
-    echo "     ╚██████╔╝███████╗██║ ╚═╝ ██║██║ ╚═╝ ██║"
-    echo "      ╚═════╝ ╚══════╝╚═╝     ╚═╝╚═╝     ╚═╝"
+    echo "=============================="
     echo "      RemnaBackuper"
     echo "      Creator: Dnt3e"
-    echo "================================================"
+    echo "=============================="
     echo "1) Start scheduled backup"
     echo "2) Test Telegram send"
     echo "3) Edit configuration"
     echo "4) Remove script"
     echo "5) Exit"
-    echo "================================================"
+    echo "=============================="
     read -rp "Choose an option: " OPTION
     case $OPTION in
         1)
@@ -167,18 +150,18 @@ show_menu() {
 # CONFIGURATION
 # ------------------------------
 configure_script() {
-    read -rp -e -i "$BOT_TOKEN" -p "$(echo -e ${GREEN}Enter Telegram bot token: ${RESET})" input
+    read -rp "Enter Telegram bot token [$BOT_TOKEN]: " input
     BOT_TOKEN=${input:-$BOT_TOKEN}
-
-    read -rp -e -i "$ADMIN_ID" -p "$(echo -e ${GREEN}Enter Telegram admin ID: ${RESET})" input
+    
+    read -rp "Enter Telegram admin ID [$ADMIN_ID]: " input
     ADMIN_ID=${input:-$ADMIN_ID}
-
-    read -rp -e -i "$BACKUP_INTERVAL" -p "$(echo -e ${GREEN}Enter backup interval in minutes: ${RESET})" input
+    
+    read -rp "Enter backup interval in minutes [$BACKUP_INTERVAL]: " input
     BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
-
-    read -rp -e -i "$BACKUP_NAME" -p "$(echo -e ${GREEN}Enter backup file base name: ${RESET})" input
+    
+    read -rp "Enter backup file base name [$BACKUP_NAME]: " input
     BACKUP_NAME=${input:-$BACKUP_NAME}
-
+    
     save_config
     echo "[*] Configuration saved!"
 }
@@ -189,13 +172,13 @@ configure_script() {
 main() {
     install_dependencies
     load_config
-
+    
     # If config is empty, first-time setup
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
         echo "[*] First-time setup:"
         configure_script
     fi
-
+    
     while true; do
         show_menu
     done
