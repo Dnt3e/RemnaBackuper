@@ -49,6 +49,7 @@ get_server_ip() {
 }
 
 backup_db() {
+    load_config
     TEMP_SQL="$HOME/backup.sql"
     ZIPNAME="$HOME/${BACKUP_NAME}.zip"
     $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
@@ -73,7 +74,6 @@ cleanup() {
 }
 
 run_full_process() {
-    load_config
     backup_db
     send_to_telegram
     cleanup
