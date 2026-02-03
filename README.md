@@ -1,56 +1,40 @@
 # RemnaBackuper
 
-A simple, automated PostgreSQL backup solution for Docker environments with Telegram integration.
+**RemnaBackuper** is an automated backup tool designed specifically for **Remnawave panel** environments. It safely backs up the PostgreSQL database running inside the Remnawave Docker container, compresses it, sends it to Telegram, and automatically cleans temporary files.
 
-**RemnaBackuper** periodically backs up your PostgreSQL database running inside a Docker container, compresses it, sends it to a Telegram bot, and cleans up old files automatically.
-
-**creator:** Dnt3e
+Creator: **Dnt3e**
 
 ---
 
 ## ✨ Features
 
-* Automated PostgreSQL backup via Docker
-* ZIP compression
-* Telegram bot delivery
-* Cron-based scheduling (minute-based)
-* Semi-graphical menu (whiptail)
-* Automatic dependency installation with progress bar
-* Editable configuration
-* Test backup without waiting for schedule
-* Custom backup file names
-* Server IP, date & time in Telegram caption
-* Clean uninstall option
+* Designed specifically for **Remnawave panel**
+* Automated PostgreSQL backup from Docker container
+* ZIP compression for efficient storage
+* Automatic delivery to Telegram bot
+* Cron-based scheduling (minute-based intervals)
+* Interactive CLI configuration menu
+* Automatic dependency installation
+* Manual backup testing without waiting for schedule
+* Custom backup file naming
+* Backup caption includes server IP, date, and time
+* Clean uninstall option (removes cron jobs and configs)
 
 ---
 
 ## 📦 Requirements
 
-* Ubuntu 20.04+
-* Docker
-* PostgreSQL running inside Docker container
+* Ubuntu / Debian based Linux
+* Docker installed
+* Remnawave PostgreSQL database container
+* Telegram Bot Token
+* Internet connection
 
-The script will automatically install these if missing:
-
-* `curl`
-* `zip`
-* `whiptail`
-* `docker.io`
+Required packages are installed automatically if missing.
 
 ---
 
 ## 🚀 Installation
-
-### Manual Installation
-
-```bash
-sudo mkdir -p /opt/RemnaBackuper
-sudo nano /opt/RemnaBackuper/remnabackuper.sh  # Paste the script here
-sudo chmod +x /opt/RemnaBackuper/remnabackuper.sh
-sudo /opt/RemnaBackuper/remnabackuper.sh
-```
-
-Follow the on-screen menu to complete installation.
 
 ### One-line Automatic Installation
 
@@ -58,101 +42,42 @@ Follow the on-screen menu to complete installation.
 bash <(curl -fsSL https://raw.githubusercontent.com/Dnt3e/RemnaBackuper/main/remnabackuper.sh)
 ```
 
-This will:
+This command will:
 
-1. Download the latest `remnabackuper.sh` from GitHub.
-2. Make it executable.
-3. Run the script and guide you through the setup menu.
+* Download the latest script
+* Install required dependencies
+* Launch setup menu
+* Configure automatic scheduled backups
 
 ---
 
-## ⚙️ Configuration Options
+## ⚙️ Configuration
 
-During installation or via **Edit Settings**:
+During setup or from the script menu you can configure:
 
 * Telegram Bot Token
-* Admin Chat ID
+* Telegram Admin Chat ID
 * Backup interval (minutes)
-* Backup file base name
+* Backup file name
 
 ---
 
-## 🧪 Test Backup
+## 🧪 Manual Backup
 
-Use the menu option **Manual Backup (Send Now)** to send a backup immediately without waiting for cron.
+You can instantly send a backup using the menu option:
+
+```
+Manual Backup (Send Now)
+```
 
 ---
 
-## 🗑 Remove RemnaBackuper
+## 🗑 Uninstall
 
-Completely removes:
+RemnaBackuper can fully remove itself including:
 
 * Cron jobs
 * Configuration files
-* Backup directory
-* Script itself
+* Script files
 
 ---
-
-## 📁 Project Structure
-
-```
-/opt/RemnaBackuper/
-├── remnabackuper.sh
-├── config.conf
-└── backup/
-```
-
----
-
-## 🛠 Docker Command Used
-
-```bash
-docker exec remnawave-db pg_dump -U postgres postgres
-```
-
----
-
-## 📄 Script Link
-
-The main script is available here:
-
-* [View or Download `remnabackuper.sh`](https://github.com/Dnt3e/RemnaBackuper/blob/main/remnabackuper.sh)
-* [Download raw script](https://raw.githubusercontent.com/Dnt3e/RemnaBackuper/main/remnabackuper.sh)
-
----
-
-## 🖼 Telegram Caption Example
-
-```
-📦 Database Backup
-🖥 Server IP: 1.2.3.4
-🕒 Date: 2026-02-03 14:22
-📂 Name: remna_backup
-```
-
----
-
-## 🔗 Badges
-
-![License](https://img.shields.io/badge/License-MIT-blue)
-![Platform](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Docker-green)
-![Telegram](https://img.shields.io/badge/Notify-Telegram-blue)
-
----
-
-## 👤 Author
-
-**Dnt3e**
-
----
-
-## 📄 License
-
-MIT License
-
-Feel free to fork, modify, and contribute.
-
----
-
-⭐ If you find this project useful, consider giving it a star on GitHub!
