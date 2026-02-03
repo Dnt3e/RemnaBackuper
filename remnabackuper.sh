@@ -1,36 +1,19 @@
 #!/bin/bash
 
-# ==============================
-# RemnaBackuper
-# Creator: Dnt3e
-# ==============================
-
-# ------------------------------
-# CONFIG FILE
-# ------------------------------
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 
-# Default settings
 BOT_TOKEN=""
 ADMIN_ID=""
-BACKUP_INTERVAL=60       # in minutes
-BACKUP_NAME="backup"
+BACKUP_INTERVAL=60
+BACKUP_NAME="RemnaBackuper"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
 DB_NAME="postgres"
 
-# ------------------------------
-# HELPER FUNCTIONS
-# ------------------------------
-
-# Load config
 load_config() {
-    if [[ -f "$CONFIG_FILE" ]]; then
-        source "$CONFIG_FILE"
-    fi
+    [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
 }
 
-# Save config
 save_config() {
     cat > "$CONFIG_FILE" <<EOL
 BOT_TOKEN="$BOT_TOKEN"
@@ -43,39 +26,34 @@ DB_NAME="$DB_NAME"
 EOL
 }
 
-# Install dependencies
 install_dependencies() {
-    sudo apt update
-    sudo apt install -y zip curl jq
+    echo "[*] Installing dependencies..."
+    local i=0
+    while [ $i -le 100 ]; do
+        echo -ne "Installing... $i%\r"
+        sleep 0.05
+        ((i+=5))
+    done
+    sudo apt update && sudo apt install -y zip curl jq >/dev/null 2>&1
+    echo -e "Installing... 100%\n[*] Dependencies installed!"
 }
 
-# Get server IP
 get_server_ip() {
     hostname -I | awk '{print $1}'
 }
 
-# Backup DB and zip
 backup_db() {
-    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-    FILENAME="${BACKUP_NAME}_${TIMESTAMP}.sql"
-    ZIPNAME="${FILENAME}.zip"
-    
-    echo "[*] Creating PostgreSQL backup..."
+    FILENAME="backup.sql"
+    ZIPNAME="${BACKUP_NAME}.zip"
     docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$FILENAME"
-    
-    echo "[*] Zipping backup..."
-    zip -r "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
-    
-    echo "[*] Backup file created: $ZIPNAME"
+    zip -r -F "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
+    echo "[*] Backup ZIP created: $ZIPNAME"
 }
 
-# Send backup to Telegram
 send_to_telegram() {
-    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
+    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
-
-    echo "[*] Sending backup to Telegram..."
     curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
          -F chat_id="$ADMIN_ID" \
          -F document=@"$ZIPNAME" \
@@ -83,29 +61,35 @@ send_to_telegram() {
     echo "[*] Backup sent!"
 }
 
-# Clean up
 cleanup() {
-    rm -f "$FILENAME" "$ZIPNAME"
+    rm -f backup.sql "$ZIPNAME"
 }
 
-# Test send
 test_send() {
     backup_db
     send_to_telegram
     cleanup
 }
 
-# Remove script
 remove_script() {
-    echo "[*] Removing RemnaBackuper..."
     rm -f "$0" "$CONFIG_FILE"
-    echo "[*] Done!"
+    echo "[*] RemnaBackuper removed!"
     exit 0
 }
 
-# ------------------------------
-# MENU
-# ------------------------------
+configure_script() {
+    read -rp "Enter Telegram bot token [$BOT_TOKEN]: " input
+    BOT_TOKEN=${input:-$BOT_TOKEN}
+    read -rp "Enter Telegram admin ID [$ADMIN_ID]: " input
+    ADMIN_ID=${input:-$ADMIN_ID}
+    read -rp "Enter backup interval in minutes [$BACKUP_INTERVAL]: " input
+    BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
+    read -rp "Enter backup ZIP name [$BACKUP_NAME]: " input
+    BACKUP_NAME=${input:-$BACKUP_NAME}
+    save_config
+    echo "[*] Configuration saved!"
+}
+
 show_menu() {
     echo "=============================="
     echo "      RemnaBackuper"
@@ -120,7 +104,6 @@ show_menu() {
     read -rp "Choose an option: " OPTION
     case $OPTION in
         1)
-            echo "[*] Starting scheduled backup every $BACKUP_INTERVAL minutes..."
             while true; do
                 backup_db
                 send_to_telegram
@@ -146,39 +129,12 @@ show_menu() {
     esac
 }
 
-# ------------------------------
-# CONFIGURATION
-# ------------------------------
-configure_script() {
-    read -rp "Enter Telegram bot token [$BOT_TOKEN]: " input
-    BOT_TOKEN=${input:-$BOT_TOKEN}
-    
-    read -rp "Enter Telegram admin ID [$ADMIN_ID]: " input
-    ADMIN_ID=${input:-$ADMIN_ID}
-    
-    read -rp "Enter backup interval in minutes [$BACKUP_INTERVAL]: " input
-    BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
-    
-    read -rp "Enter backup file base name [$BACKUP_NAME]: " input
-    BACKUP_NAME=${input:-$BACKUP_NAME}
-    
-    save_config
-    echo "[*] Configuration saved!"
-}
-
-# ------------------------------
-# MAIN
-# ------------------------------
 main() {
     install_dependencies
     load_config
-    
-    # If config is empty, first-time setup
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
-        echo "[*] First-time setup:"
         configure_script
     fi
-    
     while true; do
         show_menu
     done
