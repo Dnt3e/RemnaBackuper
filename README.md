@@ -4,6 +4,8 @@ A simple, automated PostgreSQL backup solution for Docker environments with Tele
 
 **RemnaBackuper** periodically backs up your PostgreSQL database running inside a Docker container, compresses it, sends it to a Telegram bot, and cleans up old files automatically.
 
+**creator:** dnt3e
+
 ---
 
 ## ✨ Features
@@ -39,14 +41,28 @@ The script will automatically install these if missing:
 
 ## 🚀 Installation
 
+### Manual Installation
+
 ```bash
 sudo mkdir -p /opt/RemnaBackuper
-sudo nano /opt/RemnaBackuper/remnabackuper.sh
+sudo nano /opt/RemnaBackuper/remnabackuper.sh  # Paste the script here
 sudo chmod +x /opt/RemnaBackuper/remnabackuper.sh
 sudo /opt/RemnaBackuper/remnabackuper.sh
 ```
 
 Follow the on-screen menu to complete installation.
+
+### One-line Automatic Installation
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Dnt3e/RemnaBackuper/main/remnabackuper.sh)
+```
+
+This will:
+
+1. Download the latest `remnabackuper.sh` from GitHub.
+2. Make it executable.
+3. Run the script and guide you through the setup menu.
 
 ---
 
@@ -78,17 +94,6 @@ Completely removes:
 
 ---
 
-## 🖼 Telegram Caption Example
-
-```
-📦 Database Backup
-🖥 Server IP: 1.2.3.4
-🕒 Date: 2026-02-03 14:22
-📂 Name: remna_backup
-```
-
----
-
 ## 📁 Project Structure
 
 ```
@@ -105,6 +110,34 @@ Completely removes:
 ```bash
 docker exec remnawave-db pg_dump -U postgres postgres
 ```
+
+---
+
+## 📄 Script Link
+
+The main script is available here:
+
+* [View or Download `remnabackuper.sh`](https://github.com/Dnt3e/RemnaBackuper/blob/main/remnabackuper.sh)
+* [Download raw script](https://raw.githubusercontent.com/Dnt3e/RemnaBackuper/main/remnabackuper.sh)
+
+---
+
+## 🖼 Telegram Caption Example
+
+```
+📦 Database Backup
+🖥 Server IP: 1.2.3.4
+🕒 Date: 2026-02-03 14:22
+📂 Name: remna_backup
+```
+
+---
+
+## 🔗 Badges
+
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Platform](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Docker-green)
+![Telegram](https://img.shields.io/badge/Notify-Telegram-blue)
 
 ---
 
