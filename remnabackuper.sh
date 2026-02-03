@@ -3,13 +3,24 @@
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+# مسیر ثابت برای ذخیره اسکریپت روی سرور
+SCRIPT_PATH="/usr/local/bin/remnabackuper.sh"
 CONFIG_FILE="$HOME/.remnabackuper.conf"
-SCRIPT_PATH=$(readlink -f "$0")
 
 DOCKER_BIN=$(which docker)
 ZIP_BIN=$(which zip)
 CURL_BIN=$(which curl)
 BASH_BIN=$(which bash)
+
+# تابع برای استقرار اسکریپت روی سرور (برای حل مشکل Pipe)
+deploy_self() {
+    if [[ "$0" == "bash" ]] || [[ "$0" == "/bin/bash" ]] || [[ "$0" == "sh" ]]; then
+        echo -e "${GREEN}[*] Deploying script to $SCRIPT_PATH for permanent scheduling...${NC}"
+        # کپی کردن محتوای در حال اجرا به فایل ثابت
+        cat "$0" > "$SCRIPT_PATH" 2>/dev/null || cat /dev/stdin > "$SCRIPT_PATH"
+        chmod +x "$SCRIPT_PATH"
+    fi
+}
 
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
@@ -30,15 +41,8 @@ EOL
 }
 
 install_dependencies() {
-    sudo apt update -y
-    sudo apt install -y zip curl jq cron
-    sudo systemctl enable cron
-    sudo systemctl start cron
-    chmod +x "$SCRIPT_PATH"
-}
-
-get_server_ip() {
-    hostname -I | awk '{print $1}'
+    sudo apt update -y && sudo apt install -y zip curl jq cron
+    sudo systemctl enable cron && sudo systemctl start cron
 }
 
 backup_db() {
@@ -52,40 +56,33 @@ backup_db() {
 
 send_to_telegram() {
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
-    SERVER_IP=$(get_server_ip)
-    DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
+    SERVER_IP=$(hostname -I | awk '{print $1}')
     ZIP_PATH="/tmp/${BACKUP_NAME}.zip"
     if [ -f "$ZIP_PATH" ]; then
         $CURL_BIN -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
              -F chat_id="$ADMIN_ID" \
              -F document=@"$ZIP_PATH" \
-             -F caption="$DESCRIPTION" >/dev/null
+             -F caption="Server IP: $SERVER_IP | Time: $TIMESTAMP" >/dev/null
     fi
 }
 
-cleanup() {
-    rm -f "/tmp/backup_temp.sql" "/tmp/${BACKUP_NAME}.zip"
-}
-
-run_full_process() {
-    backup_db
-    send_to_telegram
-    cleanup
-}
-
 setup_cron() {
-    (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
+    # استفاده از مسیر ثابت SCRIPT_PATH برای کرون
+    (crontab -l 2>/dev/null | grep -v "remnabackuper.sh") > /tmp/cron_tmp
     echo "*/$BACKUP_INTERVAL * * * * $BASH_BIN $SCRIPT_PATH --run > /dev/null 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
 }
 
-remove_script() {
-    crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -
-    rm -f "$CONFIG_FILE" "$0"
+if [[ "$1" == "--run" ]]; then
+    run_full_process() { backup_db; send_to_telegram; rm -f "/tmp/backup_temp.sql" "/tmp/${BACKUP_NAME}.zip"; }
+    run_full_process
     exit 0
-}
+fi
 
+# ------------------------------
+# MENU & UI
+# ------------------------------
 show_menu() {
     echo "=========================================="
     echo "  _____  ______ __  __ _   _          "
@@ -108,11 +105,10 @@ show_menu() {
     read -r OPTION
     case $OPTION in
         1) setup_cron; echo -e "${GREEN}[*] Cron job updated!${NC}" ;;
-        2) run_full_process; echo -e "${GREEN}[*] Test backup sent!${NC}" ;;
+        2) backup_db; send_to_telegram; echo -e "${GREEN}[*] Test sent!${NC}" ;;
         3) configure_script; setup_cron ;;
-        4) remove_script ;;
+        4) crontab -l | grep -v "remnabackuper.sh" | crontab -; rm -f "$CONFIG_FILE" "$SCRIPT_PATH"; exit 0 ;;
         5) exit 0 ;;
-        *) echo "Invalid option!" ;;
     esac
 }
 
@@ -128,23 +124,18 @@ configure_script() {
     save_config
 }
 
-if [[ "$1" == "--run" ]]; then
-    run_full_process
-    exit 0
-fi
-
 main() {
+    # اول از همه تلاش برای ذخیره فایل روی دیسک
+    deploy_self
     install_dependencies
     if [[ ! -f "$CONFIG_FILE" ]]; then
         configure_script
+        backup_db; send_to_telegram
         setup_cron
-        run_full_process
     else
         load_config
     fi
-    while true; do
-        show_menu
-    done
+    while true; do show_menu; done
 }
 
 main
