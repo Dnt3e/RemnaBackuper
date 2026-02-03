@@ -5,10 +5,9 @@
 # Creator: Dnt3e
 # ==============================
 
-# Colors for UI
+# Colors
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
-BOLD='\033[1m'
 
 # ------------------------------
 # CONFIG FILE
@@ -61,17 +60,17 @@ get_server_ip() {
 
 # Backup DB and zip
 backup_db() {
-    # Internal filename is always backup.sql as requested
-    FILENAME="backup.sql"
-    # Zip name defaults to RemnaBackuper.zip if not set
-    ZIP_BASE_NAME=${BACKUP_NAME:-RemnaBackuper}
-    ZIPNAME="${ZIP_BASE_NAME}.zip"
+    # فایل داخلی همیشه backup.sql است
+    TEMP_SQL="backup.sql"
+    ZIPNAME="${BACKUP_NAME}.zip"
     
     echo "[*] Creating PostgreSQL backup..."
-    docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$FILENAME"
+    docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
     
-    echo "[*] Zipping backup into $ZIPNAME..."
-    zip -r "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
+    echo "[*] Zipping backup..."
+    # ایجاد فایل زیپ و حذف فایل sql قدیمی اگر از قبل بود
+    rm -f "$ZIPNAME"
+    zip -r "$ZIPNAME" "$TEMP_SQL" >/dev/null 2>&1
     
     echo "[*] Backup file created: $ZIPNAME"
 }
@@ -92,8 +91,9 @@ send_to_telegram() {
 
 # Clean up
 cleanup() {
-    echo "[*] Cleaning up local files..."
+    # حذف فایل SQL و فایل زیپ از روی سرور
     rm -f "backup.sql" "$ZIPNAME"
+    echo "[*] Local backup files removed."
 }
 
 # Test send
@@ -115,17 +115,24 @@ remove_script() {
 # MENU
 # ------------------------------
 show_menu() {
-    echo "=============================="
-    echo -e "${BOLD}      REMNA BACKUPER${NC}"
-    echo "      Creator: Dnt3e"
-    echo "=============================="
+    echo "=========================================="
+    echo "  _____  ______ __  __ _   _          "
+    echo " |  __ \|  ____|  \/  | \ | |   /\    "
+    echo " | |__) | |__  | \  / |  \| |  /  \   "
+    echo " |  _  /|  __| | |\/| | . \` | / /\ \  "
+    echo " | | \ \| |____| |  | | |\  |/ ____ \ "
+    echo " |_|  \_\______|_|  |_|_| \_/_/    \_\\"
+    echo "             BACKUPER"
+    echo "------------------------------------------"
+    echo "           Creator: Dnt3e"
+    echo "=========================================="
     echo "1) Start scheduled backup"
     echo "2) Test Telegram send"
     echo "3) Edit configuration"
     echo "4) Remove script"
     echo "5) Exit"
-    echo "=============================="
-    echo -ne "${GREEN}Choose an option: ${NC}"
+    echo "=========================================="
+    printf "${GREEN}Choose an option: ${NC}"
     read -r OPTION
     case $OPTION in
         1)
@@ -159,19 +166,19 @@ show_menu() {
 # CONFIGURATION
 # ------------------------------
 configure_script() {
-    echo -ne "${GREEN}Enter Telegram bot token [$BOT_TOKEN]: ${NC}"
+    printf "${GREEN}Enter Telegram bot token [$BOT_TOKEN]: ${NC}"
     read -r input
     BOT_TOKEN=${input:-$BOT_TOKEN}
     
-    echo -ne "${GREEN}Enter Telegram admin ID [$ADMIN_ID]: ${NC}"
+    printf "${GREEN}Enter Telegram admin ID [$ADMIN_ID]: ${NC}"
     read -r input
     ADMIN_ID=${input:-$ADMIN_ID}
     
-    echo -ne "${GREEN}Enter backup interval in minutes [$BACKUP_INTERVAL]: ${NC}"
+    printf "${GREEN}Enter backup interval in minutes [$BACKUP_INTERVAL]: ${NC}"
     read -r input
     BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
     
-    echo -ne "${GREEN}Enter backup zip name (Default: RemnaBackuper): ${NC}"
+    printf "${GREEN}Enter backup file name (default: RemnaBackuper): ${NC}"
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
     
