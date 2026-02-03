@@ -1,27 +1,41 @@
 #!/bin/bash
 
+# ==============================
+# RemnaBackuper
+# Creator: Dnt3e
+# ==============================
+
+# Colors for UI
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# ------------------------------
+# CONFIG FILE
+# ------------------------------
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 
+# Default settings
 BOT_TOKEN=""
 ADMIN_ID=""
-BACKUP_INTERVAL=60
-BACKUP_NAME="backup"
+BACKUP_INTERVAL=60       # in minutes
+BACKUP_NAME="RemnaBackuper"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
 DB_NAME="postgres"
 
-GREEN='\033[0;32m'
-NC='\033[0m'
+# ------------------------------
+# HELPER FUNCTIONS
+# ------------------------------
 
-FILENAME="backup.sql"
-ZIPNAME="RemnaBackuper.zip"
-
+# Load config
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
         source "$CONFIG_FILE"
     fi
 }
 
+# Save config
 save_config() {
     cat > "$CONFIG_FILE" <<EOL
 BOT_TOKEN="$BOT_TOKEN"
@@ -34,67 +48,62 @@ DB_NAME="$DB_NAME"
 EOL
 }
 
+# Install dependencies
 install_dependencies() {
     sudo apt update
     sudo apt install -y zip curl jq
 }
 
+# Get server IP
 get_server_ip() {
     hostname -I | awk '{print $1}'
 }
 
+# Backup DB and zip
 backup_db() {
+    # Internal filename is always backup.sql as requested
+    FILENAME="backup.sql"
+    # Zip name defaults to RemnaBackuper.zip if not set
+    ZIP_BASE_NAME=${BACKUP_NAME:-RemnaBackuper}
+    ZIPNAME="${ZIP_BASE_NAME}.zip"
+    
     echo "[*] Creating PostgreSQL backup..."
     docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$FILENAME"
     
-    if [ -s "$FILENAME" ]; then
-        echo "[*] Zipping backup with 5% recovery record..."
-        zip -r -RE 5 "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
-        return 0
-    else
-        return 1
-    fi
+    echo "[*] Zipping backup into $ZIPNAME..."
+    zip -r "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
+    
+    echo "[*] Backup file created: $ZIPNAME"
 }
 
+# Send backup to Telegram
 send_to_telegram() {
-    local status=$1
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
-    
-    if [ "$status" -eq 0 ]; then
-        CAPTION="✅ Backup Successful%0AServer IP: $SERVER_IP%0ATime: $TIMESTAMP"
-        RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
-             -F chat_id="$ADMIN_ID" \
-             -F document=@"$ZIPNAME" \
-             -F caption="$CAPTION")
-        
-        if echo "$RESPONSE" | grep -q '"ok":true'; then
-            echo "[*] Backup sent successfully!"
-        else
-            echo "[!] Telegram API Error: $RESPONSE"
-        fi
-    else
-        CAPTION="❌ Backup Failed!%0AServer IP: $SERVER_IP%0ATime: $TIMESTAMP"
-        curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-             -d chat_id="$ADMIN_ID" \
-             -d text="$CAPTION" >/dev/null
-        echo "[!] Failure notification sent!"
-    fi
+    DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
+
+    echo "[*] Sending backup to Telegram..."
+    curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+         -F chat_id="$ADMIN_ID" \
+         -F document=@"$ZIPNAME" \
+         -F caption="$DESCRIPTION" >/dev/null
+    echo "[*] Backup sent!"
 }
 
+# Clean up
 cleanup() {
-    rm -f "$FILENAME" "$ZIPNAME"
+    echo "[*] Cleaning up local files..."
+    rm -f "backup.sql" "$ZIPNAME"
 }
 
+# Test send
 test_send() {
-    if backup_db; then
-        send_to_telegram 0
-    else
-        send_to_telegram 1
-    fi
+    backup_db
+    send_to_telegram
     cleanup
 }
 
+# Remove script
 remove_script() {
     echo "[*] Removing RemnaBackuper..."
     rm -f "$0" "$CONFIG_FILE"
@@ -102,34 +111,28 @@ remove_script() {
     exit 0
 }
 
+# ------------------------------
+# MENU
+# ------------------------------
 show_menu() {
-    echo "=========================================="
-    echo "  ____  _____ __  __ _   _    _    "
-    echo " |  _ \| ____|  \/  | \ | |  / \   "
-    echo " | |_) |  _| | |\/| |  \| | / _ \  "
-    echo " |  _ <| |___| |  | | |\  |/ ___ \ "
-    echo " |_| \_\_____|_|  |_|_| \_/_/   \_\\"
-    echo "            BACKUPER"
-    echo "------------------------------------------"
-    echo "          Creator: Dnt3e"
-    echo "=========================================="
+    echo "=============================="
+    echo -e "${BOLD}      REMNA BACKUPER${NC}"
+    echo "      Creator: Dnt3e"
+    echo "=============================="
     echo "1) Start scheduled backup"
     echo "2) Test Telegram send"
     echo "3) Edit configuration"
     echo "4) Remove script"
     echo "5) Exit"
-    echo "=========================================="
+    echo "=============================="
     echo -ne "${GREEN}Choose an option: ${NC}"
     read -r OPTION
     case $OPTION in
         1)
             echo "[*] Starting scheduled backup every $BACKUP_INTERVAL minutes..."
             while true; do
-                if backup_db; then
-                    send_to_telegram 0
-                else
-                    send_to_telegram 1
-                fi
+                backup_db
+                send_to_telegram
                 cleanup
                 sleep "${BACKUP_INTERVAL}m"
             done
@@ -152,6 +155,9 @@ show_menu() {
     esac
 }
 
+# ------------------------------
+# CONFIGURATION
+# ------------------------------
 configure_script() {
     echo -ne "${GREEN}Enter Telegram bot token [$BOT_TOKEN]: ${NC}"
     read -r input
@@ -165,23 +171,25 @@ configure_script() {
     read -r input
     BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
     
-    echo -ne "${GREEN}Enter DB Container Name [$DB_CONTAINER]: ${NC}"
+    echo -ne "${GREEN}Enter backup zip name (Default: RemnaBackuper): ${NC}"
     read -r input
-    DB_CONTAINER=${input:-$DB_CONTAINER}
+    BACKUP_NAME=${input:-$BACKUP_NAME}
     
     save_config
     echo "[*] Configuration saved!"
 }
 
+# ------------------------------
+# MAIN
+# ------------------------------
 main() {
     install_dependencies
     load_config
     
+    # If config is empty, first-time setup
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
         echo "[*] First-time setup:"
         configure_script
-        echo "[*] Running initial test backup..."
-        test_send
     fi
     
     while true; do
