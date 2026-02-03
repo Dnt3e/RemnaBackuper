@@ -4,15 +4,15 @@
 # RemnaBackuper
 # Creator: Dnt3e
 # ==============================
-
 GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 CONFIG_FILE="$HOME/.remnabackuper.conf"
+SCRIPT_PATH=$(readlink -f "$0")
 
 BOT_TOKEN=""
 ADMIN_ID=""
-BACKUP_INTERVAL=60      
+BACKUP_INTERVAL=60
 BACKUP_NAME="RemnaBackuper"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
@@ -38,7 +38,9 @@ EOL
 
 install_dependencies() {
     sudo apt update
-    sudo apt install -y zip curl jq
+    sudo apt install -y zip curl jq cron
+    sudo systemctl enable cron
+    sudo systemctl start cron
 }
 
 get_server_ip() {
@@ -48,45 +50,44 @@ get_server_ip() {
 backup_db() {
     TEMP_SQL="backup.sql"
     ZIPNAME="${BACKUP_NAME}.zip"
-    
-    echo "[*] Creating PostgreSQL backup..."
     docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
-    
-    echo "[*] Zipping backup..."
     rm -f "$ZIPNAME"
     zip -r "$ZIPNAME" "$TEMP_SQL" >/dev/null 2>&1
-    
-    echo "[*] Backup file created: $ZIPNAME"
 }
 
 send_to_telegram() {
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
     DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
-
-    echo "[*] Sending backup to Telegram..."
     curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
          -F chat_id="$ADMIN_ID" \
-         -F document=@"$ZIPNAME" \
+         -F document=@"${BACKUP_NAME}.zip" \
          -F caption="$DESCRIPTION" >/dev/null
-    echo "[*] Backup sent!"
 }
 
 cleanup() {
-    rm -f "backup.sql" "$ZIPNAME"
-    echo "[*] Local backup files removed."
+    rm -f "backup.sql" "${BACKUP_NAME}.zip"
 }
 
-test_send() {
+run_full_process() {
+    load_config
     backup_db
     send_to_telegram
     cleanup
 }
 
+setup_cron() {
+    (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
+    echo "*/$BACKUP_INTERVAL * * * * $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
+    crontab /tmp/cron_tmp
+    rm /tmp/cron_tmp
+    echo "[*] Cron job updated: Every $BACKUP_INTERVAL minutes."
+}
+
 remove_script() {
-    echo "[*] Removing RemnaBackuper..."
-    rm -f "$0" "$CONFIG_FILE"
-    echo "[*] Done!"
+    crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -
+    rm -f "$CONFIG_FILE" "$0"
+    echo "[*] Removed successfully!"
     exit 0
 }
 
@@ -102,7 +103,7 @@ show_menu() {
     echo "------------------------------------------"
     echo "           Creator: Dnt3e"
     echo "=========================================="
-    echo "1) Start scheduled backup"
+    echo "1) Start/Update scheduled backup (Cron)"
     echo "2) Test Telegram send"
     echo "3) Edit configuration"
     echo "4) Remove script"
@@ -112,16 +113,11 @@ show_menu() {
     read -r OPTION
     case $OPTION in
         1)
-            echo "[*] Starting scheduled backup every $BACKUP_INTERVAL minutes..."
-            while true; do
-                backup_db
-                send_to_telegram
-                cleanup
-                sleep "${BACKUP_INTERVAL}m"
-            done
+            setup_cron
             ;;
         2)
-            test_send
+            run_full_process
+            echo "[*] Test backup sent!"
             ;;
         3)
             configure_script
@@ -142,32 +138,29 @@ configure_script() {
     printf "${GREEN}Enter Telegram bot token [$BOT_TOKEN]: ${NC}"
     read -r input
     BOT_TOKEN=${input:-$BOT_TOKEN}
-    
     printf "${GREEN}Enter Telegram admin ID [$ADMIN_ID]: ${NC}"
     read -r input
     ADMIN_ID=${input:-$ADMIN_ID}
-    
     printf "${GREEN}Enter backup interval in minutes [$BACKUP_INTERVAL]: ${NC}"
     read -r input
     BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
-    
     printf "${GREEN}Enter backup file name (default: RemnaBackuper): ${NC}"
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
-    
     save_config
-    echo "[*] Configuration saved!"
 }
+
+if [[ "$1" == "--run" ]]; then
+    run_full_process
+    exit 0
+fi
 
 main() {
     install_dependencies
     load_config
-    
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
-        echo "[*] First-time setup:"
         configure_script
     fi
-    
     while true; do
         show_menu
     done
