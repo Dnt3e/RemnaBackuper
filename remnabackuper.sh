@@ -79,17 +79,31 @@ run_full_process() {
 }
 
 setup_cron() {
-    (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
+    echo -e "${GREEN}Do you want to clear existing crontab entries or keep them?${NC}"
+    echo "1) Keep existing and add new backup schedule"
+    echo "2) Clear all existing crontab entries and add new"
+    read -p "Choice [1/2]: " cron_choice
+
+    if [[ "$cron_choice" == "2" ]]; then
+        echo "" > /tmp/cron_tmp
+    else
+        crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" > /tmp/cron_tmp
+    fi
+
     echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
-    echo "[*] Cron job updated: Every $BACKUP_INTERVAL minutes."
+    
+    echo -e "${GREEN}[+] Installation Successful! Cron job updated.${NC}"
+    echo "[*] Sending a test backup to Telegram..."
+    run_full_process
+    echo -e "${GREEN}[+] Test backup sent successfully!${NC}"
 }
 
 remove_script() {
     crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -
     rm -f "$CONFIG_FILE" "$0"
-    echo "[*] Removed successfully!"
+    echo -e "${GREEN}[+] Uninstalled successfully! Settings and Cron jobs removed.${NC}"
     exit 0
 }
 
@@ -101,9 +115,9 @@ show_menu() {
     echo " |  _  /|  __| | |\/| | . \` | / /\ \  "
     echo " | | \ \| |____| |  | | |\  |/ ____ \ "
     echo " |_|  \_\______|_|  |_|_| \_/_/    \_\\"
-    echo "             BACKUPER"
+    echo "               BACKUPER"
     echo "------------------------------------------"
-    echo "           Creator: Dnt3e"
+    echo "            Creator: Dnt3e"
     echo "=========================================="
     echo "1) Start/Update scheduled backup (Cron)"
     echo "2) Test Telegram send"
