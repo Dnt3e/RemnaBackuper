@@ -5,36 +5,25 @@
 # Creator: Dnt3e
 # ==============================
 
-# Colors
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-# ------------------------------
-# CONFIG FILE
-# ------------------------------
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 
-# Default settings
 BOT_TOKEN=""
 ADMIN_ID=""
-BACKUP_INTERVAL=60       # in minutes
+BACKUP_INTERVAL=60      
 BACKUP_NAME="RemnaBackuper"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
 DB_NAME="postgres"
 
-# ------------------------------
-# HELPER FUNCTIONS
-# ------------------------------
-
-# Load config
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
         source "$CONFIG_FILE"
     fi
 }
 
-# Save config
 save_config() {
     cat > "$CONFIG_FILE" <<EOL
 BOT_TOKEN="$BOT_TOKEN"
@@ -47,20 +36,16 @@ DB_NAME="$DB_NAME"
 EOL
 }
 
-# Install dependencies
 install_dependencies() {
     sudo apt update
     sudo apt install -y zip curl jq
 }
 
-# Get server IP
 get_server_ip() {
     hostname -I | awk '{print $1}'
 }
 
-# Backup DB and zip
 backup_db() {
-    # فایل داخلی همیشه backup.sql است
     TEMP_SQL="backup.sql"
     ZIPNAME="${BACKUP_NAME}.zip"
     
@@ -68,14 +53,12 @@ backup_db() {
     docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
     
     echo "[*] Zipping backup..."
-    # ایجاد فایل زیپ و حذف فایل sql قدیمی اگر از قبل بود
     rm -f "$ZIPNAME"
     zip -r "$ZIPNAME" "$TEMP_SQL" >/dev/null 2>&1
     
     echo "[*] Backup file created: $ZIPNAME"
 }
 
-# Send backup to Telegram
 send_to_telegram() {
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
@@ -89,21 +72,17 @@ send_to_telegram() {
     echo "[*] Backup sent!"
 }
 
-# Clean up
 cleanup() {
-    # حذف فایل SQL و فایل زیپ از روی سرور
     rm -f "backup.sql" "$ZIPNAME"
     echo "[*] Local backup files removed."
 }
 
-# Test send
 test_send() {
     backup_db
     send_to_telegram
     cleanup
 }
 
-# Remove script
 remove_script() {
     echo "[*] Removing RemnaBackuper..."
     rm -f "$0" "$CONFIG_FILE"
@@ -111,9 +90,6 @@ remove_script() {
     exit 0
 }
 
-# ------------------------------
-# MENU
-# ------------------------------
 show_menu() {
     echo "=========================================="
     echo "  _____  ______ __  __ _   _          "
@@ -162,9 +138,6 @@ show_menu() {
     esac
 }
 
-# ------------------------------
-# CONFIGURATION
-# ------------------------------
 configure_script() {
     printf "${GREEN}Enter Telegram bot token [$BOT_TOKEN]: ${NC}"
     read -r input
@@ -186,14 +159,10 @@ configure_script() {
     echo "[*] Configuration saved!"
 }
 
-# ------------------------------
-# MAIN
-# ------------------------------
 main() {
     install_dependencies
     load_config
     
-    # If config is empty, first-time setup
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
         echo "[*] First-time setup:"
         configure_script
