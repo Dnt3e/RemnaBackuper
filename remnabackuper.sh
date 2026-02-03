@@ -6,9 +6,9 @@ NC='\033[0m'
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 SCRIPT_PATH=$(readlink -f "$0")
 
-DOCKER_BIN=$(which docker || echo "/usr/bin/docker")
-ZIP_BIN=$(which zip || echo "/usr/bin/zip")
-CURL_BIN=$(which curl || echo "/usr/bin/curl")
+DOCKER_BIN=$(which docker)
+ZIP_BIN=$(which zip)
+CURL_BIN=$(which curl)
 
 BOT_TOKEN=""
 ADMIN_ID=""
@@ -52,11 +52,11 @@ backup_db() {
     TEMP_SQL="/tmp/backup.sql"
     ZIPNAME="/tmp/${BACKUP_NAME}.zip"
     
-    $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
+    $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL" 2>> "$HOME/backuper.log"
     
     rm -f "$ZIPNAME"
     cd /tmp || exit
-    $ZIP_BIN -j "${BACKUP_NAME}.zip" "backup.sql" >/dev/null 2>&1
+    $ZIP_BIN -r "${BACKUP_NAME}.zip" "backup.sql" >/dev/null 2>&1
 }
 
 send_to_telegram() {
@@ -68,7 +68,7 @@ send_to_telegram() {
     $CURL_BIN -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
          -F chat_id="$ADMIN_ID" \
          -F document=@"$ZIP_PATH" \
-         -F caption="$DESCRIPTION"
+         -F caption="$DESCRIPTION" >> "$HOME/backuper.log" 2>&1
 }
 
 cleanup() {
@@ -83,14 +83,14 @@ run_full_process() {
 
 setup_cron() {
     (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
-    echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run > /tmp/backuper_last_run.log 2>&1" >> /tmp/cron_tmp
+    echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run >> $HOME/backuper.log 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
 }
 
 remove_script() {
     crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -
-    rm -f "$CONFIG_FILE" "$0"
+    rm -f "$CONFIG_FILE" "$0" "$HOME/backuper.log"
     echo "[*] Removed successfully!"
     exit 0
 }
