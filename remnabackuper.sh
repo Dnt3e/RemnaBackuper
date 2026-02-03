@@ -4,8 +4,15 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 CONFIG_FILE="$HOME/.remnabackuper.conf"
-SCRIPT_PATH=$(readlink -f "$0")
-chmod +x "$SCRIPT_PATH"
+
+if [[ "$0" == *"pipe"* ]] || [[ "$0" == "bash" ]]; then
+    SCRIPT_PATH="/root/remnabackup.sh"
+    cat "$0" > "$SCRIPT_PATH" 2>/dev/null || cat /dev/stdin > "$SCRIPT_PATH"
+    chmod +x "$SCRIPT_PATH"
+else
+    SCRIPT_PATH=$(readlink -f "$0")
+    chmod +x "$SCRIPT_PATH"
+fi
 
 DOCKER_BIN=$(which docker)
 ZIP_BIN=$(which zip)
@@ -88,7 +95,7 @@ setup_cron() {
     if [[ "$cron_choice" == "2" ]]; then
         echo "" > /tmp/cron_tmp
     else
-        crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" > /tmp/cron_tmp
+        crontab -l 2>/dev/null | grep -v "remnabackup.sh" | grep -v "$SCRIPT_PATH" > /tmp/cron_tmp
     fi
 
     echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
@@ -102,8 +109,8 @@ setup_cron() {
 }
 
 remove_script() {
-    crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -
-    rm -f "$CONFIG_FILE" "$0"
+    crontab -l 2>/dev/null | grep -v "remnabackup.sh" | grep -v "$SCRIPT_PATH" | crontab -
+    rm -f "$CONFIG_FILE" "$SCRIPT_PATH"
     echo -e "${GREEN}[+] Uninstalled successfully! Settings and Cron jobs removed.${NC}"
     exit 0
 }
