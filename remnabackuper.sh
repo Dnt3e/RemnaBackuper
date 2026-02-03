@@ -5,6 +5,7 @@ NC='\033[0m'
 
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 SCRIPT_PATH=$(readlink -f "$0")
+chmod +x "$SCRIPT_PATH"
 
 DOCKER_BIN=$(which docker)
 ZIP_BIN=$(which zip)
@@ -94,10 +95,10 @@ setup_cron() {
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
     
-    echo -e "${GREEN}[+] Installation Successful! Cron job updated.${NC}"
-    echo "[*] Sending a test backup to Telegram..."
+    echo -e "${GREEN}[+] Installation/Restart Successful! Cron job updated.${NC}"
+    echo "[*] Sending an initial backup to Telegram..."
     run_full_process
-    echo -e "${GREEN}[+] Test backup sent successfully!${NC}"
+    echo -e "${GREEN}[+] Initial backup sent successfully!${NC}"
 }
 
 remove_script() {
@@ -119,8 +120,8 @@ show_menu() {
     echo "------------------------------------------"
     echo "            Creator: Dnt3e"
     echo "=========================================="
-    echo "1) Start/Update scheduled backup (Cron)"
-    echo "2) Test Telegram send"
+    echo "1) Restart Script (Update Cron)"
+    echo "2) Manual Backup (Send Now)"
     echo "3) Edit configuration"
     echo "4) Remove script"
     echo "5) Exit"
@@ -133,7 +134,7 @@ show_menu() {
             ;;
         2)
             run_full_process
-            echo "[*] Test backup sent!"
+            echo -e "${GREEN}[*] Manual backup sent!${NC}"
             ;;
         3)
             configure_script
@@ -177,6 +178,7 @@ main() {
     load_config
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
         configure_script
+        setup_cron
     fi
     while true; do
         show_menu
