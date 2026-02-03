@@ -4,7 +4,7 @@ A simple, automated PostgreSQL backup solution for Docker environments with Tele
 
 **RemnaBackuper** periodically backs up your PostgreSQL database running inside a Docker container, compresses it, sends it to a Telegram bot, and cleans up old files automatically.
 
-**creator:** dnt3e
+**creator:** Dnt3e
 
 ---
 
@@ -79,7 +79,7 @@ During installation or via **Edit Settings**:
 
 ## 🧪 Test Backup
 
-Use the menu option **Test Backup Now** to send a backup immediately without waiting for cron.
+Use the menu option **Manual Backup (Send Now)** to send a backup immediately without waiting for cron.
 
 ---
 
