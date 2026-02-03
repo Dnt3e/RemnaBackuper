@@ -13,6 +13,9 @@ DB_NAME="postgres"
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+FILENAME="backup.sql"
+ZIPNAME="RemnaBackuper.zip"
+
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
         source "$CONFIG_FILE"
@@ -41,13 +44,10 @@ get_server_ip() {
 }
 
 backup_db() {
-    FILENAME="backup.sql"
-    ZIPNAME="RemnaBackuper.zip"
-    
     echo "[*] Creating PostgreSQL backup..."
     docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$FILENAME"
     
-    if [ $? -eq 0 ]; then
+    if [ -s "$FILENAME" ]; then
         echo "[*] Zipping backup with 5% recovery record..."
         zip -r -RE 5 "$ZIPNAME" "$FILENAME" >/dev/null 2>&1
         return 0
@@ -63,11 +63,16 @@ send_to_telegram() {
     
     if [ "$status" -eq 0 ]; then
         CAPTION="✅ Backup Successful%0AServer IP: $SERVER_IP%0ATime: $TIMESTAMP"
-        curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+        RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
              -F chat_id="$ADMIN_ID" \
              -F document=@"$ZIPNAME" \
-             -F caption="$CAPTION" >/dev/null
-        echo "[*] Backup sent!"
+             -F caption="$CAPTION")
+        
+        if echo "$RESPONSE" | grep -q '"ok":true'; then
+            echo "[*] Backup sent successfully!"
+        else
+            echo "[!] Telegram API Error: $RESPONSE"
+        fi
     else
         CAPTION="❌ Backup Failed!%0AServer IP: $SERVER_IP%0ATime: $TIMESTAMP"
         curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
@@ -78,7 +83,7 @@ send_to_telegram() {
 }
 
 cleanup() {
-    rm -f "backup.sql" "RemnaBackuper.zip"
+    rm -f "$FILENAME" "$ZIPNAME"
 }
 
 test_send() {
@@ -160,9 +165,9 @@ configure_script() {
     read -r input
     BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
     
-    echo -ne "${GREEN}Enter backup file base name [$BACKUP_NAME]: ${NC}"
+    echo -ne "${GREEN}Enter DB Container Name [$DB_CONTAINER]: ${NC}"
     read -r input
-    BACKUP_NAME=${input:-$BACKUP_NAME}
+    DB_CONTAINER=${input:-$DB_CONTAINER}
     
     save_config
     echo "[*] Configuration saved!"
