@@ -81,3 +81,7 @@ RemnaBackuper can fully remove itself including:
 * Script files
 
 ---
+
+## ⭐ Support The Project
+
+If you find this project useful, please consider giving it a **star ⭐ on GitHub**. Your support helps the project grow and motivates further development.
