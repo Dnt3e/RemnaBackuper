@@ -80,9 +80,10 @@ run_full_process() {
 
 setup_cron() {
     (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
-    echo "*/$BACKUP_INTERVAL * * * * PATH=\$PATH:/usr/local/bin:/usr/bin:/bin /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
+    echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
+    echo "[*] Cron job updated: Every $BACKUP_INTERVAL minutes."
 }
 
 remove_script() {
@@ -104,7 +105,7 @@ show_menu() {
     echo "------------------------------------------"
     echo "           Creator: Dnt3e"
     echo "=========================================="
-    echo "1) Update scheduled backup (Cron)"
+    echo "1) Start/Update scheduled backup (Cron)"
     echo "2) Test Telegram send"
     echo "3) Edit configuration"
     echo "4) Remove script"
@@ -115,7 +116,6 @@ show_menu() {
     case $OPTION in
         1)
             setup_cron
-            echo "[*] Cron job updated!"
             ;;
         2)
             run_full_process
@@ -123,7 +123,6 @@ show_menu() {
             ;;
         3)
             configure_script
-            setup_cron
             ;;
         4)
             remove_script
@@ -161,18 +160,10 @@ fi
 
 main() {
     install_dependencies
-    
-    if [[ ! -f "$CONFIG_FILE" ]]; then
+    load_config
+    if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
         configure_script
-        echo "[*] Performing initial test backup..."
-        run_full_process
-        echo "[*] Initial backup sent to Telegram."
-        setup_cron
-        echo "[*] Auto-scheduling enabled (Every $BACKUP_INTERVAL minutes)."
-    else
-        load_config
     fi
-    
     while true; do
         show_menu
     done
