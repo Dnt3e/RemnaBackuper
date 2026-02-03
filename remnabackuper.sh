@@ -3,7 +3,6 @@
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-# مسیر ثابت برای ذخیره اسکریپت روی سرور
 SCRIPT_PATH="/usr/local/bin/remnabackuper.sh"
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 
@@ -11,16 +10,6 @@ DOCKER_BIN=$(which docker)
 ZIP_BIN=$(which zip)
 CURL_BIN=$(which curl)
 BASH_BIN=$(which bash)
-
-# تابع برای استقرار اسکریپت روی سرور (برای حل مشکل Pipe)
-deploy_self() {
-    if [[ "$0" == "bash" ]] || [[ "$0" == "/bin/bash" ]] || [[ "$0" == "sh" ]]; then
-        echo -e "${GREEN}[*] Deploying script to $SCRIPT_PATH for permanent scheduling...${NC}"
-        # کپی کردن محتوای در حال اجرا به فایل ثابت
-        cat "$0" > "$SCRIPT_PATH" 2>/dev/null || cat /dev/stdin > "$SCRIPT_PATH"
-        chmod +x "$SCRIPT_PATH"
-    fi
-}
 
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
@@ -47,7 +36,7 @@ install_dependencies() {
 
 backup_db() {
     load_config
-    TEMP_SQL="/tmp/backup_temp.sql"
+    TEMP_SQL="/tmp/backup.sql"
     ZIPNAME="/tmp/${BACKUP_NAME}.zip"
     $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
     rm -f "$ZIPNAME"
@@ -67,7 +56,6 @@ send_to_telegram() {
 }
 
 setup_cron() {
-    # استفاده از مسیر ثابت SCRIPT_PATH برای کرون
     (crontab -l 2>/dev/null | grep -v "remnabackuper.sh") > /tmp/cron_tmp
     echo "*/$BACKUP_INTERVAL * * * * $BASH_BIN $SCRIPT_PATH --run > /dev/null 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
@@ -75,14 +63,12 @@ setup_cron() {
 }
 
 if [[ "$1" == "--run" ]]; then
-    run_full_process() { backup_db; send_to_telegram; rm -f "/tmp/backup_temp.sql" "/tmp/${BACKUP_NAME}.zip"; }
-    run_full_process
+    backup_db
+    send_to_telegram
+    rm -f "/tmp/backup.sql" "/tmp/${BACKUP_NAME}.zip"
     exit 0
 fi
 
-# ------------------------------
-# MENU & UI
-# ------------------------------
 show_menu() {
     echo "=========================================="
     echo "  _____  ______ __  __ _   _          "
@@ -125,8 +111,6 @@ configure_script() {
 }
 
 main() {
-    # اول از همه تلاش برای ذخیره فایل روی دیسک
-    deploy_self
     install_dependencies
     if [[ ! -f "$CONFIG_FILE" ]]; then
         configure_script
