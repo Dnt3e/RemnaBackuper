@@ -6,9 +6,9 @@ NC='\033[0m'
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 SCRIPT_PATH=$(readlink -f "$0")
 
-DOCKER_BIN=$(which docker)
-ZIP_BIN=$(which zip)
-CURL_BIN=$(which curl)
+DOCKER_BIN=$(which docker || echo "/usr/bin/docker")
+ZIP_BIN=$(which zip || echo "/usr/bin/zip")
+CURL_BIN=$(which curl || echo "/usr/bin/curl")
 
 BOT_TOKEN=""
 ADMIN_ID=""
@@ -48,31 +48,34 @@ get_server_ip() {
 }
 
 backup_db() {
-    TEMP_SQL="$HOME/backup.sql"
-    ZIPNAME="$HOME/${BACKUP_NAME}.zip"
+    load_config
+    TEMP_SQL="/tmp/backup.sql"
+    ZIPNAME="/tmp/${BACKUP_NAME}.zip"
+    
     $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
+    
     rm -f "$ZIPNAME"
-    cd "$HOME" || exit
-    $ZIP_BIN -r "${BACKUP_NAME}.zip" "backup.sql" >/dev/null 2>&1
+    cd /tmp || exit
+    $ZIP_BIN -j "${BACKUP_NAME}.zip" "backup.sql" >/dev/null 2>&1
 }
 
 send_to_telegram() {
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
     DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
-    ZIP_PATH="$HOME/${BACKUP_NAME}.zip"
+    ZIP_PATH="/tmp/${BACKUP_NAME}.zip"
+    
     $CURL_BIN -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
          -F chat_id="$ADMIN_ID" \
          -F document=@"$ZIP_PATH" \
-         -F caption="$DESCRIPTION" >/dev/null
+         -F caption="$DESCRIPTION"
 }
 
 cleanup() {
-    rm -f "$HOME/backup.sql" "$HOME/${BACKUP_NAME}.zip"
+    rm -f "/tmp/backup.sql" "/tmp/${BACKUP_NAME}.zip"
 }
 
 run_full_process() {
-    load_config
     backup_db
     send_to_telegram
     cleanup
@@ -80,7 +83,7 @@ run_full_process() {
 
 setup_cron() {
     (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
-    echo "*/$BACKUP_INTERVAL * * * * PATH=\$PATH:/usr/local/bin:/usr/bin:/bin /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
+    echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run > /tmp/backuper_last_run.log 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
 }
@@ -151,7 +154,6 @@ configure_script() {
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
     save_config
-    echo "[*] Configuration updated!"
 }
 
 if [[ "$1" == "--run" ]]; then
@@ -161,18 +163,13 @@ fi
 
 main() {
     install_dependencies
-    
     if [[ ! -f "$CONFIG_FILE" ]]; then
         configure_script
-        echo "[*] Performing initial test backup..."
         run_full_process
-        echo "[*] Initial backup sent to Telegram."
         setup_cron
-        echo "[*] Auto-scheduling enabled (Every $BACKUP_INTERVAL minutes)."
     else
         load_config
     fi
-    
     while true; do
         show_menu
     done
