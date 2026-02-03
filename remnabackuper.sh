@@ -6,10 +6,6 @@ NC='\033[0m'
 CONFIG_FILE="$HOME/.remnabackuper.conf"
 SCRIPT_PATH=$(readlink -f "$0")
 
-DOCKER_BIN=$(which docker)
-ZIP_BIN=$(which zip)
-CURL_BIN=$(which curl)
-
 BOT_TOKEN=""
 ADMIN_ID=""
 BACKUP_INTERVAL=60
@@ -48,27 +44,25 @@ get_server_ip() {
 }
 
 backup_db() {
-    TEMP_SQL="$HOME/backup.sql"
-    ZIPNAME="$HOME/${BACKUP_NAME}.zip"
-    $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
+    TEMP_SQL="backup.sql"
+    ZIPNAME="${BACKUP_NAME}.zip"
+    docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
     rm -f "$ZIPNAME"
-    cd "$HOME" || exit
-    $ZIP_BIN -r "${BACKUP_NAME}.zip" "backup.sql" >/dev/null 2>&1
+    zip -r "$ZIPNAME" "$TEMP_SQL" >/dev/null 2>&1
 }
 
 send_to_telegram() {
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     SERVER_IP=$(get_server_ip)
     DESCRIPTION="Server IP: $SERVER_IP | Time: $TIMESTAMP"
-    ZIP_PATH="$HOME/${BACKUP_NAME}.zip"
-    $CURL_BIN -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+    curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
          -F chat_id="$ADMIN_ID" \
-         -F document=@"$ZIP_PATH" \
+         -F document=@"${BACKUP_NAME}.zip" \
          -F caption="$DESCRIPTION" >/dev/null
 }
 
 cleanup() {
-    rm -f "$HOME/backup.sql" "$HOME/${BACKUP_NAME}.zip"
+    rm -f "backup.sql" "${BACKUP_NAME}.zip"
 }
 
 run_full_process() {
@@ -80,7 +74,7 @@ run_full_process() {
 
 setup_cron() {
     (crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH") > /tmp/cron_tmp
-    echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
+    echo "*/$BACKUP_INTERVAL * * * * $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
     echo "[*] Cron job updated: Every $BACKUP_INTERVAL minutes."
@@ -150,7 +144,6 @@ configure_script() {
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
     save_config
-    echo "[*] Configuration updated!"
 }
 
 if [[ "$1" == "--run" ]]; then
