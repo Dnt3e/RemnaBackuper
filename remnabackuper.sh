@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================
-# RemnaBackuper
+# RemnaBackuper 
 # Creator: Dnt3e
 # ==============================
 
@@ -32,6 +32,7 @@ BACKUP_NAME="RemnaBackuper"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
 DB_NAME="postgres"
+EXTRA_PATHS=""
 
 load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
@@ -48,6 +49,7 @@ BACKUP_NAME="$BACKUP_NAME"
 DB_CONTAINER="$DB_CONTAINER"
 DB_USER="$DB_USER"
 DB_NAME="$DB_NAME"
+EXTRA_PATHS="$EXTRA_PATHS"
 EOL
 }
 
@@ -66,10 +68,28 @@ backup_db() {
     load_config
     TEMP_SQL="$HOME/backup.sql"
     ZIPNAME="$HOME/${BACKUP_NAME}.zip"
+    
+    # 1. Dump Database
     $DOCKER_BIN exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" > "$TEMP_SQL"
+    
     rm -f "$ZIPNAME"
     cd "$HOME" || exit
-    $ZIP_BIN -r "${BACKUP_NAME}.zip" "backup.sql" >/dev/null 2>&1
+    
+    # 2. Prepare files list (DB + Default Paths + User Paths)
+    DEFAULT_DIRS="/opt/remnawave/ /opt/remnanode/"
+    
+    # Combine SQL backup with directories
+    ALL_TARGETS="backup.sql"
+    
+    # Check default paths and user custom paths, add only if they exist
+    for dir in $DEFAULT_DIRS $EXTRA_PATHS; do
+        if [[ -e "$dir" ]]; then
+            ALL_TARGETS="$ALL_TARGETS $dir"
+        fi
+    done
+    
+    # 3. Create Zip (Simultaneous backup)
+    $ZIP_BIN -r "${BACKUP_NAME}.zip" $ALL_TARGETS >/dev/null 2>&1
 }
 
 send_to_telegram() {
@@ -178,6 +198,39 @@ configure_script() {
     printf "${GREEN}Enter backup file name (default: RemnaBackuper): ${NC}"
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
+
+    # --- New Section for Custom Paths ---
+    echo "------------------------------------------------------"
+    echo -e "${GREEN}[INFO] By default, this script backs up the Database AND these paths if they exist:${NC}"
+    echo -e "       - /opt/remnawave/"
+    echo -e "       - /opt/remnanode/"
+    echo "------------------------------------------------------"
+    echo "Do you want to add MORE custom paths/folders to the backup?"
+    
+    TEMP_PATHS="$EXTRA_PATHS" 
+    
+    while true; do
+        echo -e "Type '${GREEN}add${NC}' to add a path, or '${GREEN}done${NC}' to finish configuration."
+        read -r action
+        
+        if [[ "$action" == "done" ]]; then
+            break
+        elif [[ "$action" == "add" ]]; then
+            printf "Enter full path (e.g., /var/www/html): "
+            read -r new_path
+            if [[ -n "$new_path" ]]; then
+                TEMP_PATHS="$TEMP_PATHS $new_path"
+                echo -e "${GREEN}Path added: $new_path${NC}"
+            else
+                echo "Path cannot be empty."
+            fi
+        else
+            echo "Invalid input. Please type 'add' or 'done'."
+        fi
+    done
+    EXTRA_PATHS="$TEMP_PATHS"
+    # ------------------------------------
+
     save_config
     echo "[*] Configuration updated!"
 }
