@@ -456,15 +456,6 @@ configure_script() {
     printf "${W}  Backup file name   ${DIM}[${BACKUP_NAME}]${NC}: "
     read -r input; BACKUP_NAME="${input:-$BACKUP_NAME}"
 
-    printf "${W}  DB container name  ${DIM}[${DB_CONTAINER}]${NC}: "
-    read -r input; DB_CONTAINER="${input:-$DB_CONTAINER}"
-
-    printf "${W}  DB user            ${DIM}[${DB_USER}]${NC}: "
-    read -r input; DB_USER="${input:-$DB_USER}"
-
-    printf "${W}  DB name            ${DIM}[${DB_NAME}]${NC}: "
-    read -r input; DB_NAME="${input:-$DB_NAME}"
-
     echo -e "${LINE}"
     echo -e "  ${BOLD}${C}Extra Backup Paths${NC}"
     echo -e "  ${DIM}Default paths: /opt/remnawave/  /opt/remnanode/${NC}"
