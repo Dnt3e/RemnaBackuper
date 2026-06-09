@@ -27,7 +27,7 @@ CURL_BIN=$(which curl)
 
 BOT_TOKEN=""
 ADMIN_ID=""
-BACKUP_INTERVAL=60
+BACKUP_INTERVAL=360
 BACKUP_NAME="RemnaBackuper"
 DB_CONTAINER="remnawave-db"
 DB_USER="postgres"
@@ -113,6 +113,26 @@ run_full_process() {
     cleanup
 }
 
+build_cron_expression() {
+    local interval_minutes=$1
+    local cron_expr
+
+    if (( interval_minutes < 60 )); then
+        cron_expr="*/$interval_minutes * * * *"
+    elif (( interval_minutes % 60 == 0 )); then
+        local hours=$(( interval_minutes / 60 ))
+        cron_expr="0 */$hours * * *"
+    else
+        local hours=$(( interval_minutes / 60 ))
+        local mins=$(( interval_minutes % 60 ))
+        echo -e "${GREEN}[WARN] $interval_minutes minutes is not a clean hour multiple.${NC}" >&2
+        echo -e "       Using schedule: at minute $mins of every $hours hours" >&2
+        cron_expr="$mins */$hours * * *"
+    fi
+
+    echo "$cron_expr"
+}
+
 setup_cron() {
     echo -e "${GREEN}Do you want to clear existing crontab entries or keep them?${NC}"
     echo "1) Keep existing and add new backup schedule"
@@ -125,11 +145,13 @@ setup_cron() {
         crontab -l 2>/dev/null | grep -v "remnabackup.sh" | grep -v "$SCRIPT_PATH" > /tmp/cron_tmp
     fi
 
-    echo "*/$BACKUP_INTERVAL * * * * /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
+    CRON_EXPR=$(build_cron_expression "$BACKUP_INTERVAL")
+    echo "$CRON_EXPR /bin/bash $SCRIPT_PATH --run >/dev/null 2>&1" >> /tmp/cron_tmp
     crontab /tmp/cron_tmp
     rm /tmp/cron_tmp
-    
+
     echo -e "${GREEN}[+] Installation/Restart Successful! Cron job updated.${NC}"
+    echo -e "    Schedule: [$CRON_EXPR] = every $BACKUP_INTERVAL minutes"
     echo "[*] Sending an initial backup to Telegram..."
     run_full_process
     echo -e "${GREEN}[+] Initial backup sent successfully!${NC}"
@@ -192,9 +214,17 @@ configure_script() {
     printf "${GREEN}Enter Telegram admin ID [$ADMIN_ID]: ${NC}"
     read -r input
     ADMIN_ID=${input:-$ADMIN_ID}
-    printf "${GREEN}Enter backup interval in minutes [$BACKUP_INTERVAL]: ${NC}"
-    read -r input
-    BACKUP_INTERVAL=${input:-$BACKUP_INTERVAL}
+    while true; do
+        printf "${GREEN}Enter backup interval in MINUTES (e.g., 360 = every 6 hours) [$BACKUP_INTERVAL]: ${NC}"
+        read -r input
+        input=${input:-$BACKUP_INTERVAL}
+        if [[ "$input" =~ ^[1-9][0-9]*$ ]] && (( input >= 1 && input <= 1440 )); then
+            BACKUP_INTERVAL=$input
+            break
+        else
+            echo "Invalid input. Please enter a number between 1 and 1440."
+        fi
+    done
     printf "${GREEN}Enter backup file name (default: RemnaBackuper): ${NC}"
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
