@@ -546,10 +546,6 @@ esac
 main() {
     install_dependencies
     load_config
-    if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
-        configure_script
-        setup_cron
-    fi
     show_menu
 }
 
