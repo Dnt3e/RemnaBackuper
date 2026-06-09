@@ -164,58 +164,96 @@ remove_script() {
     exit 0
 }
 
+banner() {
+    clear
+    echo -e "${G}"
+    echo "  ██████╗  █████╗  ██████╗██╗  ██╗██╗   ██╗██████╗ "
+    echo "  ██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██║   ██║██╔══██╗"
+    echo "  ██████╔╝███████║██║     █████╔╝ ██║   ██║██████╔╝"
+    echo "  ██╔══██╗██╔══██║██║     ██╔═██╗ ██║   ██║██╔═══╝ "
+    echo "  ██████╔╝██║  ██║╚██████╗██║  ██╗╚██████╔╝██║     "
+    echo "  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     "
+    echo -e "${NC}"
+    echo -e "  ${BOLD}${W}RemnaBackuper${NC}  ${DIM}v1${NC}"
+    echo -e "  ${DIM}Creator: Dnt3e${NC}"
+    echo -e "${LINE}"
+    show_backup_status
+    echo -e "${LINE}"
+}
+
+show_backup_status() {
+    load_config
+    local next_run=""
+    local cron_line
+    cron_line=$(crontab -l 2>/dev/null | grep "$SCRIPT_PATH" | head -1)
+    if [[ -n "$cron_line" ]]; then
+        next_run="${G}Active${NC}"
+    else
+        next_run="${R}Not scheduled${NC}"
+    fi
+    local interval_display="${BACKUP_INTERVAL} min"
+    if (( BACKUP_INTERVAL >= 60 )) && (( BACKUP_INTERVAL % 60 == 0 )); then
+        interval_display="$(( BACKUP_INTERVAL / 60 ))h"
+    fi
+    echo -e "  ${W}Schedule :${NC} ${next_run}  ${DIM}(every ${interval_display})${NC}"
+    if [[ -n "$BOT_TOKEN" && -n "$ADMIN_ID" ]]; then
+        echo -e "  ${W}Telegram :${NC} ${G}Configured${NC}  ${DIM}(ID: ${ADMIN_ID})${NC}"
+    else
+        echo -e "  ${W}Telegram :${NC} ${R}Not configured${NC}"
+    fi
+}
+
 show_menu() {
-    echo "=========================================="
-    echo "  _____  ______ __  __ _   _          "
-    echo " |  __ \|  ____|  \/  | \ | |   /\    "
-    echo " | |__) | |__  | \  / |  \| |  /  \   "
-    echo " |  _  /|  __| | |\/| | . \` | / /\ \  "
-    echo " | | \ \| |____| |  | | |\  |/ ____ \ "
-    echo " |_|  \_\______|_|  |_|_| \_/_/    \_\\"
-    echo "               BACKUPER"
-    echo "------------------------------------------"
-    echo "            Creator: Dnt3e"
-    echo "=========================================="
-    echo "1) Restart Script (Update Cron)"
-    echo "2) Manual Backup (Send Now)"
-    echo "3) Edit configuration"
-    echo "4) Remove script"
-    echo "5) Exit"
-    echo "=========================================="
-    printf "${GREEN}Choose an option: ${NC}"
-    read -r OPTION
-    case $OPTION in
-        1)
-            setup_cron
-            ;;
-        2)
-            run_full_process
-            echo -e "${GREEN}[*] Manual backup sent!${NC}"
-            ;;
-        3)
-            configure_script
-            ;;
-        4)
-            remove_script
-            ;;
-        5)
-            exit 0
-            ;;
-        *)
-            echo "Invalid option!"
-            ;;
-    esac
+    while true; do
+        banner
+        echo -e "${BOLD}${W}  Main Menu${NC}"
+        echo -e "${LINE}"
+        echo -e "   ${W}1)${NC} 🔄  Restart / Update Cron"
+        echo -e "   ${W}2)${NC} 📤  Manual Backup  ${DIM}(send now)${NC}"
+        echo -e "   ${W}3)${NC} ⚙️   Edit Configuration"
+        echo -e "${LINE}"
+        echo -e "   ${W}4)${NC} 🗑️   Remove Script"
+        echo -e "${LINE}"
+        echo -e "   ${W}0)${NC} 🚪  Exit"
+        echo -e "${LINE}"
+        read -p "  Select: " OPTION
+        case $OPTION in
+            1)
+                setup_cron
+                ;;
+            2)
+                run_full_process
+                echo -e "${G}  [OK] Manual backup sent!${NC}"
+                read -p "  Press Enter..."
+                ;;
+            3)
+                configure_script
+                ;;
+            4)
+                remove_script
+                ;;
+            0)
+                echo -e "${G}  Goodbye.${NC}"; exit 0
+                ;;
+            *)
+                echo -e "${R}  Invalid option.${NC}"; sleep 1
+                ;;
+        esac
+    done
 }
 
 configure_script() {
-    printf "${GREEN}Enter Telegram bot token [$BOT_TOKEN]: ${NC}"
+    banner
+    echo -e "${BOLD}${C}  ⚙️  Configuration${NC}"
+    echo -e "${LINE}"
+    printf "${W}  Telegram bot token ${DIM}[$BOT_TOKEN]${NC}: "
     read -r input
     BOT_TOKEN=${input:-$BOT_TOKEN}
-    printf "${GREEN}Enter Telegram admin ID [$ADMIN_ID]: ${NC}"
+    printf "${W}  Telegram admin ID ${DIM}[$ADMIN_ID]${NC}: "
     read -r input
     ADMIN_ID=${input:-$ADMIN_ID}
     while true; do
-        printf "${GREEN}Enter backup interval in MINUTES (e.g., 360 = every 6 hours) [$BACKUP_INTERVAL]: ${NC}"
+        printf "${W}  Backup interval in MINUTES ${DIM}(e.g. 360 = 6h)${NC} ${DIM}[$BACKUP_INTERVAL]${NC}: "
         read -r input
         input=${input:-$BACKUP_INTERVAL}
         if [[ "$input" =~ ^[1-9][0-9]*$ ]] && (( input >= 1 && input <= 1440 )); then
@@ -225,32 +263,32 @@ configure_script() {
             echo "Invalid input. Please enter a number between 1 and 1440."
         fi
     done
-    printf "${GREEN}Enter backup file name (default: RemnaBackuper): ${NC}"
+    echo -e "${LINE}"
+    printf "${W}  Backup file name ${DIM}[$BACKUP_NAME]${NC}: "
     read -r input
     BACKUP_NAME=${input:-$BACKUP_NAME}
 
     # --- New Section for Custom Paths ---
-    echo "------------------------------------------------------"
-    echo -e "${GREEN}[INFO] By default, this script backs up the Database AND these paths if they exist:${NC}"
-    echo -e "       - /opt/remnawave/"
-    echo -e "       - /opt/remnanode/"
-    echo "------------------------------------------------------"
-    echo "Do you want to add MORE custom paths/folders to the backup?"
+    echo -e "${LINE}"
+    echo -e "  ${BOLD}${C}Extra Backup Paths${NC}"
+    echo -e "  ${DIM}Default paths: /opt/remnawave/  /opt/remnanode/${NC}"
+    echo -e "${LINE}"
+    echo -e "  Add MORE custom paths/folders to the backup:"
     
     TEMP_PATHS="$EXTRA_PATHS" 
     
     while true; do
-        echo -e "Type '${GREEN}add${NC}' to add a path, or '${GREEN}done${NC}' to finish configuration."
+        echo -e "  Type ${G}add${NC} to add a path, or ${W}done${NC} to finish."
         read -r action
         
         if [[ "$action" == "done" ]]; then
             break
         elif [[ "$action" == "add" ]]; then
-            printf "Enter full path (e.g., /var/www/html): "
+            printf "  Full path (e.g. /var/www/html): "
             read -r new_path
             if [[ -n "$new_path" ]]; then
                 TEMP_PATHS="$TEMP_PATHS $new_path"
-                echo -e "${GREEN}Path added: $new_path${NC}"
+                echo -e "  ${G}[+] Path added: $new_path${NC}"
             else
                 echo "Path cannot be empty."
             fi
@@ -262,7 +300,9 @@ configure_script() {
     # ------------------------------------
 
     save_config
-    echo "[*] Configuration updated!"
+    echo -e "${LINE}"
+    echo -e "  ${G}[OK] Configuration saved.${NC}"
+    read -p "  Press Enter..."
 }
 
 if [[ "$1" == "--run" ]]; then
@@ -273,13 +313,16 @@ fi
 main() {
     install_dependencies
     load_config
+    _cache_prereqs 2>/dev/null || true
     if [[ -z "$BOT_TOKEN" || -z "$ADMIN_ID" ]]; then
         configure_script
         setup_cron
     fi
-    while true; do
-        show_menu
-    done
+    show_menu
+}
+
+_cache_prereqs() {
+    : # placeholder — prereqs shown in banner via show_backup_status
 }
 
 main
