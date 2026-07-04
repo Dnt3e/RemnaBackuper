@@ -1,87 +1,82 @@
-# RemnaBackuper
+# 🤖 RemnaBot
 
-**RemnaBackuper** is an automated backup tool designed specifically for **Remnawave panel** environments. It safely backs up the PostgreSQL database running inside the Remnawave Docker container, compresses it, sends it to Telegram, and automatically cleans temporary files.
-
-Creator: **Dnt3e**
+A Telegram-controlled backup manager for **Remnawave** Panel. It dumps your Postgres database, packages it with your app folders, and delivers the archive straight to your Telegram chat — on schedule or on demand.
 
 ---
 
 ## ✨ Features
 
-* Designed specifically for **Remnawave panel**
-* Automated PostgreSQL backup from Docker container
-* ZIP compression for efficient storage
-* Automatic delivery to Telegram bot
-* Cron-based scheduling (minute-based intervals)
-* Interactive CLI configuration menu
-* Automatic dependency installation
-* Manual backup testing without waiting for schedule
-* Custom backup file naming
-* Backup caption includes server IP, date, and time
-* Clean uninstall option (removes cron jobs and configs)
+- 💬 **Interactive Telegram bot** — `/start` opens an inline menu:
+  - 📦 Manual Backup — trigger instantly from Telegram
+  - ⏱ Set Backup Interval — change schedule from chat, with built-in guide
+  - ❌ Exit
+- 🕒 **Flexible scheduling** — minutes or `H:MM` format (e.g. `1:30` = 90 min)
+- 🐘 **Smart DB dump** — auto-detects Docker (`remnawave-db`) or host Postgres, no credentials to configure
+- 📁 **Full app backup** — includes `/opt/remnawave/`, `/opt/remnanode/`, plus any custom paths
+- 🛡️ **Reliable cron** — lock-protected checker instead of raw `*/N`, so any interval actually works
+- ⚙️ **systemd service** — auto-restarts on crash or reboot
+- 🔄 **One-click cache fix** — resets the Telegram API session after moving to a new server/IP
+- 📊 **Live CLI dashboard** — service state, interval, last/next backup, all in one menu
 
 ---
 
-## 📦 Requirements
+## 📋 Requirements
 
-* Ubuntu / Debian based Linux
-* Docker installed
-* Remnawave PostgreSQL database container
-* Telegram Bot Token
-* Internet connection
-
-Required packages are installed automatically if missing.
+- Ubuntu/Debian VPS with root access
+- A Remnawave/Remnanode server (or any Postgres DB to back up)
+- A Telegram bot token from [@BotFather](https://t.me/BotFather) + your chat ID
 
 ---
 
 ## 🚀 Installation
 
-### One-line Automatic Installation
-
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Dnt3e/RemnaBackuper/main/remnabackuper.sh)
 ```
 
-This command will:
+Run as root. First run installs prerequisites with a progress bar, then asks for:
 
-* Download the latest script
-* Install required dependencies
-* Launch setup menu
-* Configure automatic scheduled backups
+1️⃣ Bot token 2️⃣ Admin chat ID 3️⃣ Backup name 4️⃣ Backup interval 5️⃣ Extra folders
 
 ---
 
-## ⚙️ Configuration
-
-During setup or from the script menu you can configure:
-
-* Telegram Bot Token
-* Telegram Admin Chat ID
-* Backup interval (minutes)
-* Backup file name
-
----
-
-## 🧪 Manual Backup
-
-You can instantly send a backup using the menu option:
+## 🧭 Menu
 
 ```
-Manual Backup (Send Now)
+1) Install & Setup Bot     – full setup wizard + systemd service
+2) Manual Backup           – runs a backup instantly from the CLI
+3) Fix Bot Cache           – resets Telegram API session (new server/IP)
+4) Edit Bot
+     1) Edit Bot Settings  – token, admin ID, name, interval, paths
+     2) Edit Cron Job      – quick interval-only change
+5) Remove Bot              – full uninstall
 ```
 
 ---
 
-## 🗑 Uninstall
+## 🔧 How It Works
 
-RemnaBackuper can fully remove itself including:
+1. `pg_dump` runs via Docker if `remnawave-db` exists, otherwise directly on the host.
+2. App folders + SQL dump are zipped together.
+3. The archive is sent to Telegram with server IP + timestamp.
+4. Temp files are cleaned up automatically.
 
-* Cron jobs
-* Configuration files
-* Script files
+Scheduled backups check every minute whether the configured interval has elapsed — so odd intervals like 90 minutes work correctly, unlike plain cron.
 
 ---
 
-## ⭐ Support The Project
+## 🆘 Stuck Bot?
 
-If you find this project useful, please consider giving it a **star ⭐ on GitHub**. Your support helps the project grow and motivates further development.
+If Telegram keeps conflicting after moving the bot to a new server, use **option 3 (Fix Bot Cache)** — it clears the webhook, pending updates, and offset, then reconnects cleanly.
+
+---
+
+## 🗑️ Uninstall
+
+Option **5** in the menu — stops the service, removes cron, config, and install files.
+
+---
+
+## 📄 License
+
+MIT — use, modify, and share freely.
